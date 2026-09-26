@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAG Assistant — Intelligent Document AI</title>
+  <meta name="description" content="State-of-the-art Retrieval-Augmented Generation system powered by FastAPI, Groq LLM inference, FastEmbed embeddings, and Pinecone vector database." />
+  
+  <!-- Google Fonts: Inter — Professional, Modern -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&display=swap" rel="stylesheet" />
+  
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar: Navigation, Knowledge Base & Chat History -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="brand">
+          <div class="brand-logo">
+            <i class="fa-solid fa-brain"></i>
+          </div>
+          <div class="brand-info">
+            <h1>RAG Assistant</h1>
+            <span class="badge-version">v1.2 • Groq + FastEmbed</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- System Connectivity Badges -->
+      <div class="status-panel">
+        <div class="status-item" id="llm-status-card" title="LLM Inference Provider">
+          <span class="status-dot green" id="llm-status-dot"></span>
+          <div class="status-text">
+            <span class="label">LLM Engine</span>
+            <span class="value" id="llm-model-name">Groq Active</span>
+          </div>
+        </div>
+        <div class="status-item" id="vector-status-card" title="Vector Database Storage Mode">
+          <span class="status-dot cyan" id="vector-status-dot"></span>
+          <div class="status-text">
+            <span class="label">Vector Store</span>
+            <span class="value" id="vector-mode-label">Pinecone Cloud</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar Tab Switcher -->
+      <div class="sidebar-nav-tabs">
+        <button class="nav-tab active" id="tab-btn-docs" data-target="panel-docs">
+          <i class="fa-solid fa-folder-open"></i>
+          <span>Documents</span>
+          <span class="tab-counter" id="tab-doc-count">0</span>
+        </button>
+        <button class="nav-tab" id="tab-btn-history" data-target="panel-history">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span>Chat History</span>
+          <span class="tab-counter" id="tab-history-count">1</span>
+        </button>
+      </div>
+
+      <!-- Tab Panel 1: Documents & Knowledge Base -->
+      <div class="sidebar-tab-panel active" id="panel-docs">
+        <!-- Upload Dropzone -->
+        <div class="upload-dropzone" id="dropzone" title="Upload PDF, DOCX, or TXT document">
+          <input type="file" id="file-input" accept=".pdf,.docx,.doc,.txt,.md,.csv,.json" hidden />
+          <div class="dropzone-content">
+            <div class="upload-icon-wrapper">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+            </div>
+            <p class="dropzone-title">Upload Knowledge Base</p>
+            <p class="dropzone-subtitle">Drag & drop or click to upload</p>
+            <div class="supported-tags">
+              <span class="tag-badge tag-pdf">PDF</span>
+              <span class="tag-badge tag-docx">DOCX</span>
+              <span class="tag-badge tag-txt">TXT</span>
+            </div>
+          </div>
+          <!-- Uploading Progress Bar -->
+          <div class="upload-progress-container hidden" id="upload-progress">
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="progress-bar-fill"></div>
+            </div>
+            <span class="progress-status-text" id="progress-status-text">Processing & Indexing...</span>
+          </div>
+        </div>
+
+        <!-- Section header & search -->
+        <div class="doc-section-header">
+          <div class="search-input-wrapper">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="doc-search-input" placeholder="Filter documents..." />
+          </div>
+          <button class="kb-hub-btn" id="open-kb-manager-btn" title="Open Knowledge Base Management Hub">
+            <i class="fa-solid fa-database"></i>
+            <span>KB Hub</span>
+          </button>
+        </div>
+
+        <!-- Uploaded Documents List -->
+        <div class="document-list-container">
+          <div class="doc-list" id="doc-list">
+            <div class="empty-docs" id="empty-docs-placeholder">
+              <i class="fa-regular fa-folder-open"></i>
+              <p>No documents indexed yet.</p>
+              <span>Upload PDF, DOCX, or TXT files to begin context retrieval.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Panel 2: Chat History & Sessions -->
+      <div class="sidebar-tab-panel" id="panel-history">
+        <div class="history-actions-bar">
+          <button class="btn-new-chat" id="btn-new-chat">
+            <i class="fa-solid fa-plus"></i>
+            <span>New Chat</span>
+          </button>
+        </div>
+
+        <div class="history-list-container">
+          <div class="history-list" id="history-list">
+            <!-- Populated by JavaScript -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <button class="footer-btn" id="open-settings-btn" title="System Diagnostics & Settings">
+          <i class="fa-solid fa-sliders"></i>
+          <span>Settings</span>
+        </button>
+        <button class="footer-btn" id="footer-kb-btn" title="Knowledge Base Dashboard">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>KB Stats</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Chat Workspace -->
+    <main class="chat-workspace">
+      <!-- Chat Header -->
+      <header class="chat-header">
+        <div class="header-left">
+          <button class="mobile-toggle-btn" id="mobile-toggle" aria-label="Toggle Navigation">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          
+          <div class="session-info">
+            <span class="session-title" id="current-session-title" title="Click to rename session">New Conversation</span>
+            <button class="btn-rename-session" id="btn-rename-session" title="Rename session">
+              <i class="fa-solid fa-pen"></i>
+            </button>
+          </div>
+
+          <div class="context-indicator" id="context-indicator" title="Current knowledge base state">
+            <i class="fa-solid fa-layer-group"></i>
+            <span id="active-context-label">Ready to search knowledge base</span>
+          </div>
+        </div>
+
+        <div class="header-right">
+          <div class="connection-badge" id="connection-badge" title="Backend connection status">
+            <span class="conn-dot"></span>
+            <span id="connection-label">Connected</span>
+          </div>
+          <button class="action-btn" id="open-kb-header-btn" title="Open Knowledge Base Management">
+            <i class="fa-solid fa-database"></i>
+            <span>Knowledge Base</span>
+          </button>
+          <button class="action-btn" id="export-chat-btn" title="Export conversation as Markdown">
+            <i class="fa-solid fa-download"></i>
+            <span>Export</span>
+          </button>
+          <button class="action-btn" id="clear-chat-btn" title="Clear current conversation messages">
+            <i class="fa-solid fa-rotate-right"></i>
+            <span>Clear</span>
+          </button>
+          <button class="icon-btn" id="open-settings-header-btn" title="Settings &amp; Diagnostics">
+            <i class="fa-solid fa-gear"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Chat Messages Container -->
+      <div class="chat-messages-container" id="chat-messages-container">
+        <!-- Welcome Hero State -->
+        <div class="welcome-screen" id="welcome-screen">
+          <div class="welcome-icon">
+            <i class="fa-solid fa-sparkles"></i>
+          </div>
+          <h2 class="welcome-title">What would you like to discover today?</h2>
+          <p class="welcome-subtitle">
+            Upload documents (PDF, DOCX, TXT) on the left. The assistant will split them into semantic chunks, generate dense vector embeddings, retrieve the most relevant context, and synthesize accurate, cited answers using Groq LLM inference.
+          </p>
+
+          <!-- Starter Prompt Cards -->
+          <div class="prompt-suggestions">
+            <button class="prompt-chip" data-prompt="Summarize the core concepts, main purpose, and key takeaways of the uploaded documents.">
+              <i class="fa-solid fa-bolt"></i>
+              <span>Summarize key concepts</span>
+            </button>
+            <button class="prompt-chip" data-prompt="Extract the primary recommendations, actionable steps, and conclusions from the text.">
+              <i class="fa-solid fa-list-check"></i>
+              <span>Extract recommendations</span>
+            </button>
+            <button class="prompt-chip" data-prompt="What are the essential differences, methodologies, and findings presented in the documents?">
+              <i class="fa-solid fa-scale-balanced"></i>
+              <span>Compare methodologies</span>
+            </button>
+            <button class="prompt-chip" data-prompt="Provide a comprehensive bulleted FAQ of questions that this knowledge base answers.">
+              <i class="fa-solid fa-circle-question"></i>
+              <span>Generate FAQ breakdown</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Chat History Stream -->
+        <div class="messages-flow" id="messages-flow"></div>
+
+        <!-- Typing Indicator -->
+        <div class="typing-indicator-row hidden" id="typing-indicator">
+          <div class="ai-avatar">
+            <i class="fa-solid fa-brain"></i>
+          </div>
+          <div class="typing-bubble">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Input Area -->
+      <footer class="chat-input-area">
+        <form class="input-form" id="chat-form">
+          <div class="input-box-wrapper">
+            <textarea
+              id="chat-textarea"
+              placeholder="Ask a question about your documents (PDF, DOCX, TXT)..."
+              rows="1"
+              autocomplete="off"
+            ></textarea>
+            <button type="submit" id="send-btn" class="send-button" aria-label="Send message">
+              <i class="fa-solid fa-arrow-up"></i>
+            </button>
+          </div>
+        </form>
+        <div class="input-hint">
+          <span>Press <strong>Enter</strong> to send, <strong>Shift + Enter</strong> for a new line • Powered by Groq & Pinecone</span>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Document Preview Modal -->
+  <div class="modal-overlay hidden" id="doc-preview-modal">
+    <div class="modal-dialog modal-large">
+      <div class="modal-header">
+        <div class="modal-title">
+          <div class="doc-type-icon-wrapper" id="preview-type-icon">
+            <i class="fa-solid fa-file-lines"></i>
+          </div>
+          <div>
+            <h3 id="preview-doc-title">Document Preview</h3>
+            <div class="preview-meta-badges">
+              <span class="badge" id="preview-badge-chunks">0 Chunks</span>
+              <span class="badge" id="preview-badge-size">0 KB</span>
+              <span class="badge" id="preview-badge-chars">0 Chars</span>
+            </div>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="close-preview-btn" aria-label="Close dialog">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Document Preview Tab Navigation -->
+      <div class="preview-tabs-bar">
+        <button class="preview-tab active" data-view="full-text">
+          <i class="fa-solid fa-align-left"></i>
+          <span>Full Extracted Text</span>
+        </button>
+        <button class="preview-tab" data-view="chunks-view">
+          <i class="fa-solid fa-puzzle-piece"></i>
+          <span>Chunks Explorer</span>
+          <span class="tab-mini-count" id="preview-chunk-count">0</span>
+        </button>
+        <button class="preview-tab" data-view="meta-view">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>Metadata & Parameters</span>
+        </button>
+      </div>
+
+      <div class="modal-body preview-body">
+        <!-- View 1: Full Document Text -->
+        <div class="preview-view-panel active" id="view-full-text">
+          <div class="preview-toolbar">
+            <div class="search-input-wrapper compact">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="preview-text-search" placeholder="Find in document text..." />
+            </div>
+            <div class="toolbar-actions">
+              <button class="btn-secondary" id="btn-copy-doc-text" title="Copy full text to clipboard">
+                <i class="fa-regular fa-copy"></i>
+                <span>Copy Text</span>
+              </button>
+              <button class="btn-secondary" id="btn-download-doc-text" title="Download extracted text">
+                <i class="fa-solid fa-download"></i>
+                <span>Download</span>
+              </button>
+            </div>
+          </div>
+          <div class="doc-text-viewer" id="doc-full-text-content">
+            <!-- Text rendered by JS -->
+          </div>
+        </div>
+
+        <!-- View 2: Chunks Explorer -->
+        <div class="preview-view-panel" id="view-chunks-view">
+          <div class="preview-toolbar">
+            <div class="search-input-wrapper compact">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="preview-chunks-filter" placeholder="Filter chunks content..." />
+            </div>
+            <span class="chunks-info-text" id="chunks-info-text">Showing all chunks</span>
+          </div>
+          <div class="chunks-grid" id="preview-chunks-container">
+            <!-- Chunk cards rendered by JS -->
+          </div>
+        </div>
+
+        <!-- View 3: Document Metadata -->
+        <div class="preview-view-panel" id="view-meta-view">
+          <div class="diag-group">
+            <h4>Document Attributes</h4>
+            <div class="diag-row">
+              <span>Document ID:</span>
+              <span class="diag-val" id="meta-doc-id">-</span>
+            </div>
+            <div class="diag-row">
+              <span>Original Filename:</span>
+              <span class="diag-val" id="meta-filename">-</span>
+            </div>
+            <div class="diag-row">
+              <span>Detected File Type:</span>
+              <span class="diag-val" id="meta-file-type">-</span>
+            </div>
+            <div class="diag-row">
+              <span>File Size:</span>
+              <span class="diag-val" id="meta-file-size">-</span>
+            </div>
+            <div class="diag-row">
+              <span>Total Extracted Characters:</span>
+              <span class="diag-val" id="meta-chars">-</span>
+            </div>
+            <div class="diag-row">
+              <span>Total Chunk Segments:</span>
+              <span class="diag-val" id="meta-chunks">-</span>
+            </div>
+            <div class="diag-row">
+              <span>Indexed Timestamp:</span>
+              <span class="diag-val" id="meta-uploaded-at">-</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-primary" id="btn-close-preview-footer">Close Preview</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Knowledge Base Management Hub Modal -->
+  <div class="modal-overlay hidden" id="kb-manager-modal">
+    <div class="modal-dialog modal-large">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-database"></i>
+          <div>
+            <h3>Knowledge Base Management</h3>
+            <span class="modal-subtitle">Vector database index & document registry</span>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="close-kb-manager-btn" aria-label="Close dialog">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Knowledge Base KPI Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-icon cyan"><i class="fa-solid fa-file-invoice"></i></div>
+            <div class="kpi-details">
+              <span class="kpi-value" id="kpi-docs-count">0</span>
+              <span class="kpi-label">Documents Indexed</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon violet"><i class="fa-solid fa-cubes"></i></div>
+            <div class="kpi-details">
+              <span class="kpi-value" id="kpi-chunks-count">0</span>
+              <span class="kpi-label">Vector Chunks</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon emerald"><i class="fa-solid fa-hard-drive"></i></div>
+            <div class="kpi-details">
+              <span class="kpi-value" id="kpi-vector-mode">Pinecone</span>
+              <span class="kpi-label">Vector Store Mode</span>
+            </div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon amber"><i class="fa-solid fa-bolt"></i></div>
+            <div class="kpi-details">
+              <span class="kpi-value" id="kpi-embedding-dim">384-d</span>
+              <span class="kpi-label">BGE-Small Embeddings</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Management Table Controls -->
+        <div class="table-controls">
+          <div class="search-input-wrapper">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="text" id="kb-table-search" placeholder="Search knowledge base documents..." />
+          </div>
+          <div class="table-actions">
+            <button class="btn-secondary" id="kb-upload-btn">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              <span>Upload Document</span>
+            </button>
+            <button class="btn-danger" id="kb-clear-all-btn">
+              <i class="fa-solid fa-trash-can"></i>
+              <span>Clear Knowledge Base</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Documents Table -->
+        <div class="table-responsive">
+          <table class="kb-table">
+            <thead>
+              <tr>
+                <th>Document Name</th>
+                <th>Type</th>
+                <th>Chunks</th>
+                <th>Size</th>
+                <th>Indexed Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="kb-table-body">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-primary" id="kb-manager-close-footer">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings & Diagnostics Modal -->
+  <div class="modal-overlay hidden" id="settings-modal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">
+          <i class="fa-solid fa-sliders"></i>
+          <h3>System Settings & Diagnostics</h3>
+        </div>
+        <button class="modal-close-btn" id="close-settings-btn" aria-label="Close dialog">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="diag-group">
+          <h4>Backend Connectivity</h4>
+          <div class="diag-row">
+            <span>FastAPI Server:</span>
+            <span class="diag-val" id="diag-fastapi">Checking...</span>
+          </div>
+          <div class="diag-row">
+            <span>Groq LLM:</span>
+            <span class="diag-val" id="diag-groq">Checking...</span>
+          </div>
+          <div class="diag-row">
+            <span>Vector Database:</span>
+            <span class="diag-val" id="diag-vector">Checking...</span>
+          </div>
+          <div class="diag-row">
+            <span>Pinecone Index:</span>
+            <span class="diag-val" id="diag-index">rag-chatbot</span>
+          </div>
+          <div class="diag-row">
+            <span>Embedding Model:</span>
+            <span class="diag-val" id="diag-embedding">BAAI/bge-small-en-v1.5 (384 dims)</span>
+          </div>
+          <div class="diag-row">
+            <span>Chunk Size / Overlap:</span>
+            <span class="diag-val" id="diag-chunking">500 chars / 100 overlap</span>
+          </div>
+        </div>
+
+        <div class="diag-info-box">
+          <i class="fa-solid fa-circle-info"></i>
+          <div>
+            <strong>Architecture Integration:</strong>
+            <p>Documents are ingested across PDF, DOCX, and TXT formats, embedded via FastEmbed ONNX runtime, indexed in Pinecone Serverless with local fallback, and queried using Groq high-speed LPU inference.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-primary" id="modal-ok-btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript Application -->
+  <script src="js/app.js"></script>
+</body>
+</html>
