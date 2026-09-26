@@ -1,7 +1,7 @@
 # 🧠 RAG Assistant — Intelligent Document AI
 
 <p align="center">
-  <img src="images/chat_interface.jpg" alt="RAG Assistant — Chat Interface" width="100%" />
+  <img src="images/Screenshot 2026-09-26 084815.png" alt="RAG Assistant — Chat Interface" width="100%" />
 </p>
 
 <p align="center">
@@ -34,12 +34,12 @@
 
 ### Chat Interface
 <p align="center">
-  <img src="images/chat_interface.jpg" alt="Chat Interface" width="90%" />
+  <img src="images/Screenshot 2026-09-26 084815.png" alt="Chat Interface" width="90%" />
 </p>
 
-### Document Upload
+### Document Chunks Explorer
 <p align="center">
-  <img src="images/document_upload.jpg" alt="Document Upload Panel" width="90%" />
+  <img src="images/Screenshot 2026-09-26 084932.png" alt="Document Chunks Explorer" width="90%" />
 </p>
 
 ---
